@@ -1,306 +1,325 @@
-// Hotel Booking and Room Management System 
+// canges by siddesh
 
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <vector>
 #include <iomanip>
-
+#include <vector>
+#include <string>
 using namespace std;
 
-// Structure to store date
-struct Date {
-    int day, month, year;
-};
-
-// Class representing a room
 class Room {
 public:
     int roomNumber;
     string roomType;
-    float pricePerNight;
+    double rentPerDay;
     bool isBooked;
 
-    Room() {}
-    Room(int number, string type, float price, bool booked = false) {
-        roomNumber = number;
-        roomType = type;
-        pricePerNight = price;
-        isBooked = booked;
-    }
+    Room(int rn = 0, string rt = "", double rent = 0.0, bool booked = false)
+        : roomNumber(rn), roomType(rt), rentPerDay(rent), isBooked(booked) {}
 
     void displayRoom() {
-        cout << left << setw(10) << roomNumber
-             << setw(15) << roomType
-             << setw(10) << pricePerNight
-             << (isBooked ? "Booked" : "Available") << endl;
+        cout << setw(10) << roomNumber << setw(15) << roomType << setw(15)
+             << rentPerDay << setw(15) << (isBooked ? "Booked" : "Available") << endl;
+    }
+
+    void saveRoom(ofstream &fout) {
+        fout << roomNumber << "," << roomType << "," << rentPerDay << "," << isBooked << endl;
+    }
+
+    void loadRoom(ifstream &fin) {
+        char comma;
+        fin >> roomNumber >> comma;
+        getline(fin, roomType, ',');
+        fin >> rentPerDay >> comma >> isBooked;
     }
 };
 
-// Class for customer details
-class Customer {
+class Booking {
 public:
-    string name;
-    string idProof;
-    string contact;
-    Date checkIn;
-    Date checkOut;
+    string customerName;
+    string customerID;
     int roomNumber;
+    string checkInDate;
+    string checkOutDate;
+    int daysStayed;
+    double rentPerDay;
+
+    Booking(string name = "", string id = "", int rNum = 0, string in = "", string out = "",
+            int days = 0, double rent = 0.0)
+        : customerName(name), customerID(id), roomNumber(rNum),
+          checkInDate(in), checkOutDate(out), daysStayed(days), rentPerDay(rent) {}
 
     void displayBooking() {
-        cout << left << setw(15) << name
-             << setw(15) << idProof
-             << setw(15) << contact
-             << "Room: " << roomNumber << "\tCheck-in: "
-             << checkIn.day << "/" << checkIn.month << "/" << checkIn.year
-             << "\tCheck-out: " << checkOut.day << "/" << checkOut.month << "/" << checkOut.year
-             << endl;
+        cout << "Customer: " << customerName << ", ID: " << customerID
+             << ", Room: " << roomNumber << ", Stay: " << daysStayed
+             << " days, Total: " << rentPerDay * daysStayed << endl;
+    }
+
+    void saveBooking(ofstream &fout) {
+        fout << customerName << "," << customerID << "," << roomNumber << ","
+             << checkInDate << "," << checkOutDate << "," << daysStayed << "," << rentPerDay << endl;
+    }
+
+    void loadBooking(ifstream &fin) {
+        char comma;
+        getline(fin, customerName, ',');
+        getline(fin, customerID, ',');
+        fin >> roomNumber >> comma;
+        getline(fin, checkInDate, ',');
+        getline(fin, checkOutDate, ',');
+        fin >> daysStayed >> comma >> rentPerDay;
+    }
+
+    void generateReceipt() {
+        ofstream rec;
+        string filename = "receipt_" + customerID + ".txt";
+        rec.open(filename.c_str());
+        rec << "================= Hotel Booking Receipt =================\n";
+        rec << "Customer Name   : " << customerName << "\n";
+        rec << "Customer ID     : " << customerID << "\n";
+        rec << "Room Number     : " << roomNumber << "\n";
+        rec << "Check-in Date   : " << checkInDate << "\n";
+        rec << "Check-out Date  : " << checkOutDate << "\n";
+        rec << "Room Rent/Day   : " << rentPerDay << "\n";
+        rec << "Total Days      : " << daysStayed << "\n";
+        rec << "---------------------------------------------------------\n";
+        rec << "Total Bill      : " << rentPerDay * daysStayed << "\n";
+        rec << "=========================================================\n";
+        rec.close();
+        cout << "Receipt generated and saved as: " << filename << endl;
     }
 };
 
-// Manager class to control the hotel system
-class HotelManager {
-    vector<Room> rooms;
-    vector<Customer> bookings;
+// Global Vectors
+vector<Room> rooms;
+vector<Booking> bookings;
 
-public:
-    HotelManager() {
-        loadRooms();
-        loadBookings();
-    }
-
-    void loadRooms();
-    void saveRooms();
-    void loadBookings();
-    void saveBookings();
-
-    void addRoom();
-    void viewRooms();
-    void deleteRoom();
-    void editRoom();
-
-    void bookRoom();
-    void viewBookings();
-    void searchBooking();
-    void checkoutCustomer();
-};
-
-// Load rooms from file
-void HotelManager::loadRooms() {
+void loadRooms() {
+    rooms.clear();
     ifstream fin("rooms.txt");
-    Room r;
-    while (fin >> r.roomNumber >> r.roomType >> r.pricePerNight >> r.isBooked) {
-        rooms.push_back(r);
+    while (fin.peek() != EOF) {
+        Room r;
+        r.loadRoom(fin);
+        if (fin) rooms.push_back(r);
     }
     fin.close();
 }
 
-// Save rooms to file
-void HotelManager::saveRooms() {
+void saveRooms() {
     ofstream fout("rooms.txt");
-    for (Room r : rooms) {
-        fout << r.roomNumber << " " << r.roomType << " "
-             << r.pricePerNight << " " << r.isBooked << endl;
-    }
+    for (Room r : rooms)
+        r.saveRoom(fout);
     fout.close();
 }
 
-// Load bookings from file
-void HotelManager::loadBookings() {
+void loadBookings() {
+    bookings.clear();
     ifstream fin("bookings.txt");
-    Customer c;
-    while (fin >> c.name >> c.idProof >> c.contact
-               >> c.roomNumber
-               >> c.checkIn.day >> c.checkIn.month >> c.checkIn.year
-               >> c.checkOut.day >> c.checkOut.month >> c.checkOut.year) {
-        bookings.push_back(c);
+    while (fin.peek() != EOF) {
+        Booking b;
+        b.loadBooking(fin);
+        if (fin) bookings.push_back(b);
     }
     fin.close();
 }
 
-// Save bookings to file
-void HotelManager::saveBookings() {
+void saveBookings() {
     ofstream fout("bookings.txt");
-    for (Customer c : bookings) {
-        fout << c.name << " " << c.idProof << " " << c.contact << " "
-             << c.roomNumber << " "
-             << c.checkIn.day << " " << c.checkIn.month << " " << c.checkIn.year << " "
-             << c.checkOut.day << " " << c.checkOut.month << " " << c.checkOut.year << endl;
-    }
+    for (Booking b : bookings)
+        b.saveBooking(fout);
     fout.close();
 }
 
-// Add a new room
-void HotelManager::addRoom() {
-    int number;
+void addRoom() {
+    int rn;
     string type;
-    float price;
-    cout << "Enter Room Number: ";
-    cin >> number;
-    cout << "Enter Room Type (Single/Double/Deluxe): ";
+    double rent;
+    cout << "Enter room number: ";
+    cin >> rn;
+    cout << "Enter room type (Single/Double/Deluxe): ";
     cin >> type;
-    cout << "Enter Price Per Night: ";
-    cin >> price;
-    Room r(number, type, price);
-    rooms.push_back(r);
+    cout << "Enter rent per day: ";
+    cin >> rent;
+    rooms.push_back(Room(rn, type, rent, false));
     saveRooms();
     cout << "Room added successfully.\n";
 }
 
-// View all rooms
-void HotelManager::viewRooms() {
-    cout << left << setw(10) << "Room No"
-         << setw(15) << "Type"
-         << setw(10) << "Price"
-         << "Status" << endl;
-    for (Room r : rooms) {
+void displayAllRooms() {
+    cout << setw(10) << "Room No" << setw(15) << "Type" << setw(15)
+         << "Rent" << setw(15) << "Status" << endl;
+    for (Room r : rooms)
         r.displayRoom();
-    }
 }
 
-// Delete room
-void HotelManager::deleteRoom() {
-    int number;
-    cout << "Enter room number to delete: ";
-    cin >> number;
+void modifyRoom() {
+    int rn;
+    cout << "Enter room number to modify: ";
+    cin >> rn;
+
     bool found = false;
-    for (auto it = rooms.begin(); it != rooms.end(); ++it) {
-        if (it->roomNumber == number) {
-            rooms.erase(it);
+    for (auto &r : rooms) {
+        if (r.roomNumber == rn) {
             found = true;
+            cout << "Current Room Details:\n";
+            r.displayRoom();
+            cout << "Enter new room type: ";
+            cin >> r.roomType;
+            cout << "Enter new rent per day: ";
+            cin >> r.rentPerDay;
+            saveRooms();
+            cout << "Room details updated successfully.\n";
             break;
         }
     }
-    saveRooms();
-    if (found)
-        cout << "Room deleted successfully.\n";
-    else
+
+    if (!found) {
         cout << "Room not found.\n";
-}
-
-// Edit room details
-void HotelManager::editRoom() {
-    int number;
-    cout << "Enter room number to edit: ";
-    cin >> number;
-    for (Room &r : rooms) {
-        if (r.roomNumber == number) {
-            cout << "Enter new type: ";
-            cin >> r.roomType;
-            cout << "Enter new price: ";
-            cin >> r.pricePerNight;
-            saveRooms();
-            cout << "Room updated.\n";
-            return;
-        }
     }
-    cout << "Room not found.\n";
 }
 
-// Book a room
-void HotelManager::bookRoom() {
-    Customer c;
-    cout << "Enter customer name: ";
-    cin >> c.name;
-    cout << "Enter ID proof: ";
-    cin >> c.idProof;
-    cout << "Enter contact number: ";
-    cin >> c.contact;
-    viewRooms();
+void bookRoom() {
+    string cname, cid, checkin, checkout;
+    int rnum, days;
+    displayAllRooms();
     cout << "Enter room number to book: ";
-    cin >> c.roomNumber;
-    for (Room &r : rooms) {
-        if (r.roomNumber == c.roomNumber && !r.isBooked) {
-            cout << "Enter check-in date (dd mm yyyy): ";
-            cin >> c.checkIn.day >> c.checkIn.month >> c.checkIn.year;
-            cout << "Enter check-out date (dd mm yyyy): ";
-            cin >> c.checkOut.day >> c.checkOut.month >> c.checkOut.year;
-            r.isBooked = true;
-            bookings.push_back(c);
-            saveRooms();
-            saveBookings();
-            cout << "Room booked successfully.\n";
-            return;
+    cin >> rnum;
+
+    Room *roomPtr = nullptr;
+    for (auto &r : rooms) {
+        if (r.roomNumber == rnum && !r.isBooked) {
+            roomPtr = &r;
+            break;
         }
     }
-    cout << "Room not available.\n";
-}
 
-// View all bookings
-void HotelManager::viewBookings() {
-    for (Customer c : bookings) {
-        c.displayBooking();
+    if (!roomPtr) {
+        cout << "Room not available or already booked.\n";
+        return;
     }
+
+    cout << "Enter customer name: ";
+    cin >> cname;
+    cout << "Enter customer ID: ";
+    cin >> cid;
+    cout << "Enter check-in date (YYYY-MM-DD): ";
+    cin >> checkin;
+    cout << "Enter check-out date (YYYY-MM-DD): ";
+    cin >> checkout;
+    cout << "Enter number of days staying: ";
+    cin >> days;
+
+    bookings.push_back(Booking(cname, cid, rnum, checkin, checkout, days, roomPtr->rentPerDay));
+    roomPtr->isBooked = true;
+
+    saveRooms();
+    saveBookings();
+    cout << "Room booked successfully.\n";
 }
 
-// Search booking by ID proof
-void HotelManager::searchBooking() {
-    string id;
-    cout << "Enter ID proof to search: ";
-    cin >> id;
-    for (Customer c : bookings) {
-        if (c.idProof == id) {
-            c.displayBooking();
-            return;
-        }
-    }
-    cout << "Booking not found.\n";
-}
+void checkOutRoom() {
+    string cid;
+    cout << "Enter customer ID for checkout: ";
+    cin >> cid;
 
-// Checkout a customer
-void HotelManager::checkoutCustomer() {
-    string id;
-    cout << "Enter ID proof to checkout: ";
-    cin >> id;
     for (auto it = bookings.begin(); it != bookings.end(); ++it) {
-        if (it->idProof == id) {
-            for (Room &r : rooms) {
-                if (r.roomNumber == it->roomNumber) {
+        if (it->customerID == cid) {
+            for (auto &r : rooms) {
+                if (r.roomNumber == it->roomNumber)
                     r.isBooked = false;
-                    break;
-                }
             }
+            it->generateReceipt();
             bookings.erase(it);
             saveRooms();
             saveBookings();
-            cout << "Checkout complete. Room is now available.\n";
+            cout << "Check-out complete and room marked available.\n";
             return;
         }
     }
-    cout << "Booking not found.\n";
+    cout << "No booking found with that customer ID.\n";
 }
 
-// Main menu
-int main() {
-    HotelManager hm;
+void searchBooking() {
+    int option;
+    cout << "\nSearch Booking by:\n";
+    cout << "1. Customer Name\n";
+    cout << "2. Room Number\n";
+    cout << "Enter your choice: ";
+    cin >> option;
+
+    if (option == 1) {
+        string name;
+        cout << "Enter customer name to search: ";
+        cin >> name;
+        bool found = false;
+        for (Booking b : bookings) {
+            if (b.customerName == name) {
+                b.displayBooking();
+                found = true;
+            }
+        }
+        if (!found) cout << "No booking found for customer: " << name << endl;
+    } else if (option == 2) {
+        int roomNum;
+        cout << "Enter room number to search: ";
+        cin >> roomNum;
+        bool found = false;
+        for (Booking b : bookings) {
+            if (b.roomNumber == roomNum) {
+                b.displayBooking();
+                found = true;
+            }
+        }
+        if (!found) cout << "No booking found for room number: " << roomNum << endl;
+    } else {
+        cout << "Invalid option.\n";
+    }
+}
+
+void displayAllBookings() {
+    if (bookings.empty()) {
+        cout << "No active bookings available.\n";
+        return;
+    }
+
+    cout << "\n==== All Active Bookings ====\n";
+    for (const Booking &b : bookings) {
+        b.displayBooking();
+    }
+}
+
+void showMenu() {
     int choice;
     do {
-        cout << "\n--- Hotel Booking Management System ---\n";
+        cout << "\n=== Hotel Booking and Room Management ===\n";
         cout << "1. Add Room\n";
-        cout << "2. View Rooms\n";
-        cout << "3. Edit Room\n";
-        cout << "4. Delete Room\n";
-        cout << "5. Book Room\n";
-        cout << "6. View Bookings\n";
-        cout << "7. Search Booking\n";
-        cout << "8. Checkout Customer\n";
-        cout << "0. Exit\n";
-        cout << "Enter your choice: ";
+        cout << "2. Display All Rooms\n";
+        cout << "3. Modify Room Details\n";       // New Feature
+        cout << "4. Book Room\n";
+        cout << "5. Check-Out Room\n";
+        cout << "6. Search Booking\n";
+        cout << "7. View All Bookings\n";        // New Feature
+        cout << "8. Exit\n";
+        cout << "Enter choice: ";
         cin >> choice;
 
         switch (choice) {
-            case 1: hm.addRoom(); break;
-            case 2: hm.viewRooms(); break;
-            case 3: hm.editRoom(); break;
-            case 4: hm.deleteRoom(); break;
-            case 5: hm.bookRoom(); break;
-            case 6: hm.viewBookings(); break;
-            case 7: hm.searchBooking(); break;
-            case 8: hm.checkoutCustomer(); break;
-            case 0: cout << "Exiting...\n"; break;
-            default: cout << "Invalid choice. Try again.\n";
+            case 1: addRoom(); break;
+            case 2: displayAllRooms(); break;
+            case 3: modifyRoom(); break;
+            case 4: bookRoom(); break;
+            case 5: checkOutRoom(); break;
+            case 6: searchBooking(); break;
+            case 7: displayAllBookings(); break;
+            case 8: cout << "Exiting program...\n"; break;
+            default: cout << "Invalid choice!\n"; break;
         }
-    } while (choice != 0);
+    } while (choice != 8);
+}
 
+int main() {
+    loadRooms();
+    loadBookings();
+    showMenu();
     return 0;
 }
