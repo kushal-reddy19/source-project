@@ -1,5 +1,3 @@
-// canges by siddesh
-
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -71,9 +69,7 @@ public:
     }
 
     void generateReceipt() {
-        ofstream rec;
-        string filename = "receipt_" + customerID + ".txt";
-        rec.open(filename.c_str());
+        ofstream rec("receipt_" + customerID + ".txt");
         rec << "================= Hotel Booking Receipt =================\n";
         rec << "Customer Name   : " << customerName << "\n";
         rec << "Customer ID     : " << customerID << "\n";
@@ -86,14 +82,15 @@ public:
         rec << "Total Bill      : " << rentPerDay * daysStayed << "\n";
         rec << "=========================================================\n";
         rec.close();
-        cout << "Receipt generated and saved as: " << filename << endl;
+        cout << "Receipt saved as: receipt_" << customerID << ".txt\n";
     }
 };
 
-// Global Vectors
+// Global vectors
 vector<Room> rooms;
 vector<Booking> bookings;
 
+// File operations
 void loadRooms() {
     rooms.clear();
     ifstream fin("rooms.txt");
@@ -130,6 +127,7 @@ void saveBookings() {
     fout.close();
 }
 
+// Room operations
 void addRoom() {
     int rn;
     string type;
@@ -156,32 +154,56 @@ void modifyRoom() {
     int rn;
     cout << "Enter room number to modify: ";
     cin >> rn;
-
     bool found = false;
     for (auto &r : rooms) {
         if (r.roomNumber == rn) {
             found = true;
-            cout << "Current Room Details:\n";
+            cout << "Current Room:\n";
             r.displayRoom();
-            cout << "Enter new room type: ";
+            cout << "Enter new type: ";
             cin >> r.roomType;
-            cout << "Enter new rent per day: ";
+            cout << "Enter new rent: ";
             cin >> r.rentPerDay;
             saveRooms();
-            cout << "Room details updated successfully.\n";
+            cout << "Room updated.\n";
             break;
         }
     }
-
-    if (!found) {
-        cout << "Room not found.\n";
-    }
+    if (!found) cout << "Room not found.\n";
 }
 
+void deleteRoom() {
+    int rn;
+    cout << "Enter room number to delete: ";
+    cin >> rn;
+    for (auto it = rooms.begin(); it != rooms.end(); ++it) {
+        if (it->roomNumber == rn) {
+            rooms.erase(it);
+            saveRooms();
+            cout << "Room deleted.\n";
+            return;
+        }
+    }
+    cout << "Room not found.\n";
+}
+
+void displayAvailableRooms() {
+    cout << "\n=== Available Rooms ===\n";
+    for (Room r : rooms)
+        if (!r.isBooked) r.displayRoom();
+}
+
+void displayBookedRooms() {
+    cout << "\n=== Booked Rooms ===\n";
+    for (Room r : rooms)
+        if (r.isBooked) r.displayRoom();
+}
+
+// Booking operations
 void bookRoom() {
     string cname, cid, checkin, checkout;
     int rnum, days;
-    displayAllRooms();
+    displayAvailableRooms();
     cout << "Enter room number to book: ";
     cin >> rnum;
 
@@ -194,7 +216,7 @@ void bookRoom() {
     }
 
     if (!roomPtr) {
-        cout << "Room not available or already booked.\n";
+        cout << "Room not available.\n";
         return;
     }
 
@@ -224,53 +246,46 @@ void checkOutRoom() {
 
     for (auto it = bookings.begin(); it != bookings.end(); ++it) {
         if (it->customerID == cid) {
-            for (auto &r : rooms) {
+            for (auto &r : rooms)
                 if (r.roomNumber == it->roomNumber)
                     r.isBooked = false;
-            }
             it->generateReceipt();
             bookings.erase(it);
             saveRooms();
             saveBookings();
-            cout << "Check-out complete and room marked available.\n";
+            cout << "Check-out complete.\n";
             return;
         }
     }
-    cout << "No booking found with that customer ID.\n";
+    cout << "Booking not found.\n";
 }
 
 void searchBooking() {
     int option;
-    cout << "\nSearch Booking by:\n";
-    cout << "1. Customer Name\n";
-    cout << "2. Room Number\n";
-    cout << "Enter your choice: ";
+    cout << "\nSearch by:\n1. Customer Name\n2. Room Number\nChoice: ";
     cin >> option;
-
     if (option == 1) {
         string name;
-        cout << "Enter customer name to search: ";
+        cout << "Enter customer name: ";
         cin >> name;
         bool found = false;
-        for (Booking b : bookings) {
+        for (Booking b : bookings)
             if (b.customerName == name) {
                 b.displayBooking();
                 found = true;
             }
-        }
-        if (!found) cout << "No booking found for customer: " << name << endl;
+        if (!found) cout << "No booking found.\n";
     } else if (option == 2) {
         int roomNum;
-        cout << "Enter room number to search: ";
+        cout << "Enter room number: ";
         cin >> roomNum;
         bool found = false;
-        for (Booking b : bookings) {
+        for (Booking b : bookings)
             if (b.roomNumber == roomNum) {
                 b.displayBooking();
                 found = true;
             }
-        }
-        if (!found) cout << "No booking found for room number: " << roomNum << endl;
+        if (!found) cout << "No booking found.\n";
     } else {
         cout << "Invalid option.\n";
     }
@@ -278,48 +293,52 @@ void searchBooking() {
 
 void displayAllBookings() {
     if (bookings.empty()) {
-        cout << "No active bookings available.\n";
+        cout << "No bookings found.\n";
         return;
     }
-
-    cout << "\n==== All Active Bookings ====\n";
-    for (const Booking &b : bookings) {
+    for (const Booking &b : bookings)
         b.displayBooking();
-    }
 }
 
+void displayAllReceipts() {
+    for (const Booking &b : bookings)
+        b.generateReceipt();
+}
+
+// Menu
 void showMenu() {
     int choice;
     do {
-        cout << "\n=== Hotel Booking and Room Management ===\n";
-        cout << "1. Add Room\n";
-        cout << "2. Display All Rooms\n";
-        cout << "3. Modify Room Details\n";       // New Feature
-        cout << "4. Book Room\n";
-        cout << "5. Check-Out Room\n";
-        cout << "6. Search Booking\n";
-        cout << "7. View All Bookings\n";        // New Feature
-        cout << "8. Exit\n";
-        cout << "Enter choice: ";
+        cout << "\n=== Hotel Management Menu ===\n";
+        cout << "1. Add Room\n2. Display All Rooms\n3. Modify Room\n4. Delete Room\n";
+        cout << "5. Show Available Rooms\n6. Show Booked Rooms\n";
+        cout << "7. Book Room\n8. Check-Out\n9. Search Booking\n10. View All Bookings\n";
+        cout << "11. Generate All Receipts\n12. Exit\nChoice: ";
         cin >> choice;
 
         switch (choice) {
             case 1: addRoom(); break;
             case 2: displayAllRooms(); break;
             case 3: modifyRoom(); break;
-            case 4: bookRoom(); break;
-            case 5: checkOutRoom(); break;
-            case 6: searchBooking(); break;
-            case 7: displayAllBookings(); break;
-            case 8: cout << "Exiting program...\n"; break;
-            default: cout << "Invalid choice!\n"; break;
+            case 4: deleteRoom(); break;
+            case 5: displayAvailableRooms(); break;
+            case 6: displayBookedRooms(); break;
+            case 7: bookRoom(); break;
+            case 8: checkOutRoom(); break;
+            case 9: searchBooking(); break;
+            case 10: displayAllBookings(); break;
+            case 11: displayAllReceipts(); break;
+            case 12: cout << "Exiting...\n"; break;
+            default: cout << "Invalid choice.\n"; break;
         }
-    } while (choice != 8);
+    } while (choice != 12);
 }
 
+// Main
 int main() {
     loadRooms();
     loadBookings();
     showMenu();
     return 0;
 }
+
