@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <vector>
 #include <string>
+#include <sstream>
+#include <ctime>
 using namespace std;
 
 class Room {
@@ -29,6 +31,7 @@ public:
         fin >> roomNumber >> comma;
         getline(fin, roomType, ',');
         fin >> rentPerDay >> comma >> isBooked;
+        fin.ignore();
     }
 };
 
@@ -50,7 +53,7 @@ public:
     void displayBooking() {
         cout << "Customer: " << customerName << ", ID: " << customerID
              << ", Room: " << roomNumber << ", Stay: " << daysStayed
-             << " days, Total: " << rentPerDay * daysStayed << endl;
+             << " days, Total: ₹" << rentPerDay * daysStayed << endl;
     }
 
     void saveBooking(ofstream &fout) {
@@ -63,9 +66,11 @@ public:
         getline(fin, customerName, ',');
         getline(fin, customerID, ',');
         fin >> roomNumber >> comma;
+        fin.ignore();
         getline(fin, checkInDate, ',');
         getline(fin, checkOutDate, ',');
         fin >> daysStayed >> comma >> rentPerDay;
+        fin.ignore();
     }
 
     void generateReceipt() {
@@ -76,10 +81,10 @@ public:
         rec << "Room Number     : " << roomNumber << "\n";
         rec << "Check-in Date   : " << checkInDate << "\n";
         rec << "Check-out Date  : " << checkOutDate << "\n";
-        rec << "Room Rent/Day   : " << rentPerDay << "\n";
+        rec << "Room Rent/Day   : ₹" << rentPerDay << "\n";
         rec << "Total Days      : " << daysStayed << "\n";
         rec << "---------------------------------------------------------\n";
-        rec << "Total Bill      : " << rentPerDay * daysStayed << "\n";
+        rec << "Total Bill      : ₹" << rentPerDay * daysStayed << "\n";
         rec << "=========================================================\n";
         rec.close();
         cout << "Receipt saved as: receipt_" << customerID << ".txt\n";
@@ -127,13 +132,45 @@ void saveBookings() {
     fout.close();
 }
 
+// Utility function to check date format and calculate days
+int calculateDays(string checkIn, string checkOut) {
+    tm in = {}, out = {};
+    istringstream(checkIn) >> get_time(&in, "%Y-%m-%d");
+    istringstream(checkOut) >> get_time(&out, "%Y-%m-%d");
+
+    time_t t1 = mktime(&in);
+    time_t t2 = mktime(&out);
+    if (t1 == -1 || t2 == -1 || t2 <= t1) return -1;
+
+    double seconds = difftime(t2, t1);
+    return seconds / (60 * 60 * 24);
+}
+
 // Room operations
+bool roomExists(int rn) {
+    for (Room &r : rooms)
+        if (r.roomNumber == rn)
+            return true;
+    return false;
+}
+
+bool customerIDExists(string id) {
+    for (Booking &b : bookings)
+        if (b.customerID == id)
+            return true;
+    return false;
+}
+
 void addRoom() {
     int rn;
     string type;
     double rent;
     cout << "Enter room number: ";
     cin >> rn;
+    if (roomExists(rn)) {
+        cout << "Room already exists.\n";
+        return;
+    }
     cout << "Enter room type (Single/Double/Deluxe): ";
     cin >> type;
     cout << "Enter rent per day: ";
@@ -199,41 +236,48 @@ void displayBookedRooms() {
         if (r.isBooked) r.displayRoom();
 }
 
-// Booking operations
 void bookRoom() {
     string cname, cid, checkin, checkout;
-    int rnum, days;
+    int rnum;
+
     displayAvailableRooms();
     cout << "Enter room number to book: ";
     cin >> rnum;
 
     Room *roomPtr = nullptr;
-    for (auto &r : rooms) {
+    for (auto &r : rooms)
         if (r.roomNumber == rnum && !r.isBooked) {
             roomPtr = &r;
             break;
         }
-    }
 
     if (!roomPtr) {
         cout << "Room not available.\n";
         return;
     }
 
+    cin.ignore();
     cout << "Enter customer name: ";
-    cin >> cname;
+    getline(cin, cname);
     cout << "Enter customer ID: ";
     cin >> cid;
+    if (customerIDExists(cid)) {
+        cout << "Booking with this customer ID already exists.\n";
+        return;
+    }
     cout << "Enter check-in date (YYYY-MM-DD): ";
     cin >> checkin;
     cout << "Enter check-out date (YYYY-MM-DD): ";
     cin >> checkout;
-    cout << "Enter number of days staying: ";
-    cin >> days;
 
-    bookings.push_back(Booking(cname, cid, rnum, checkin, checkout, days, roomPtr->rentPerDay));
+    int days = calculateDays(checkin, checkout);
+    if (days <= 0) {
+        cout << "Invalid date range.\n";
+        return;
+    }
+
+    bookings.emplace_back(cname, cid, rnum, checkin, checkout, days, roomPtr->rentPerDay);
     roomPtr->isBooked = true;
-
     saveRooms();
     saveBookings();
     cout << "Room booked successfully.\n";
@@ -264,31 +308,27 @@ void searchBooking() {
     int option;
     cout << "\nSearch by:\n1. Customer Name\n2. Room Number\nChoice: ";
     cin >> option;
+    bool found = false;
     if (option == 1) {
         string name;
         cout << "Enter customer name: ";
         cin >> name;
-        bool found = false;
-        for (Booking b : bookings)
+        for (Booking &b : bookings)
             if (b.customerName == name) {
                 b.displayBooking();
                 found = true;
             }
-        if (!found) cout << "No booking found.\n";
     } else if (option == 2) {
         int roomNum;
         cout << "Enter room number: ";
         cin >> roomNum;
-        bool found = false;
-        for (Booking b : bookings)
+        for (Booking &b : bookings)
             if (b.roomNumber == roomNum) {
                 b.displayBooking();
                 found = true;
             }
-        if (!found) cout << "No booking found.\n";
-    } else {
-        cout << "Invalid option.\n";
     }
+    if (!found) cout << "No booking found.\n";
 }
 
 void displayAllBookings() {
@@ -341,4 +381,4 @@ int main() {
     showMenu();
     return 0;
 }
-
+//final code 
